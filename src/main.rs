@@ -1,36 +1,35 @@
-pub trait Action {
-    fn say(&self) {
-        println!("Action");
-    }
-}
+use std::thread;
 
-pub struct Person {
-    name: String
-}
+fn parallel_squares(n: i32) {
+    let nums: Vec<i32> = (1..n+1).collect();
 
-impl Person {
-    pub fn new(name: &str) -> Person {
-        Person {
-            name: String::from(name)
-        }
-    }
-}
+    let mut threads = vec![];
 
-impl Action for Person {
-    fn say(&self) {
-        println!("Hello, {}!", self.name);
+    println!("Квадраты чисел:");
+
+    for num in nums {
+        let thread = thread::spawn(move || {
+            // Поскольку нам не важен порядок вывода, мы можем вызывать вывод прямо отсюда.
+            print!("{} ", num * num);
+        });
+
+        threads.push(thread);
     }
+
+    // Ждем завершения всех потоков.
+    for thread in threads {
+        thread.join().unwrap();
+    }
+
+    println!();
 }
 
 fn main() {
-    let person: Person = Person::new("Alice");
-    person.say();
+    parallel_squares(10);
 
-    let person2: Person = Person::new("Bob");
-    person2.say();
+    parallel_squares(20);
 
-    let person3: Person = Person::new("");
-    person3.say();
+    parallel_squares(30);
 }
 
 
