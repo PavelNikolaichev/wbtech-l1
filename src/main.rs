@@ -1,18 +1,20 @@
 use std::thread;
+use std::sync::mpsc;
 
-fn parallel_squares(n: i32) {
-    let nums: Vec<i32> = (1..n+1).collect();
-
+fn parallel_sum_of_squares(n: i32) {
+    let nums: Vec<i32> = (1..=n).collect();
     let mut threads = vec![];
 
-    println!("Квадраты чисел:");
+    let (tx, rx) = mpsc::channel();
 
     for num in nums {
+        let tx = tx.clone();
         let thread = thread::spawn(move || {
             // Поскольку нам не важен порядок вывода, мы можем вызывать вывод прямо отсюда.
-            print!("{} ", num * num);
-        });
+            let square = num * num;
 
+            tx.send(square).unwrap();
+        });
         threads.push(thread);
     }
 
@@ -21,15 +23,19 @@ fn parallel_squares(n: i32) {
         thread.join().unwrap();
     }
 
-    println!();
+    let res: i32 = rx.iter().take(n as usize).sum();
+    println!("{}",  res);
 }
 
 fn main() {
-    parallel_squares(10);
+    parallel_sum_of_squares(10);
+    parallel_sum_of_squares(10);
 
-    parallel_squares(20);
+    parallel_sum_of_squares(20);
+    parallel_sum_of_squares(20);
 
-    parallel_squares(30);
+    parallel_sum_of_squares(30);
+    parallel_sum_of_squares(30);
 }
 
 
