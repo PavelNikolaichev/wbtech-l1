@@ -1,37 +1,34 @@
 use std::time::Duration;
-use tokio::{task, signal};
+use tokio::task;
+use tokio::sync::mpsc;
 
-async fn create_workers(n: i32, rx: flume::Receiver<String>) {
-    let mut threads = Vec::new();
+async fn send_data(tx: mpsc::Sender<i32>, duration: Duration) {
+    let mut i = 0;
 
-    for id in 0..n {
-        let rx = rx.clone();
+    loop {
+        if let Err(_) = tx.send(i).await {
+            println!("Receiver have been dropped. Exiting...");
+            break;
+        }
 
-        threads.push(task::spawn(async move {
-            loop {
-                match rx.recv_async().await {
-                    Ok(data) => println!("Worker {} got: {}", id, data),
-                    Err(_) => {
-                        println!("Worker {} is closing...", id);
-                        break;
-                    }
-                }
-            }
-        }));
+        println!("Worker sent data: {}", i);
+        i += 1;
+
+        tokio::time::sleep(duration).await;
+    }
+}
+
+async fn receive_data(mut rx: mpsc::Receiver<i32>) {
+    while let Some(data) = rx.recv().await {
+        println!("Worker received data: {}", data);
     }
 
-    for thread in threads {
-        thread.await.unwrap();
-    }
+    println!("Sender have been dropped. Exiting...");
 }
 
 #[tokio::main]
 async fn main() {
-    println!("Введите количество воркеров: ");
     let mut input = String::new();
-    std::io::stdin().read_line(&mut input).unwrap();
-
-    let n: i32 = input.trim().parse().unwrap();
 
     println!("Введите время ожидания между отправкой данных(в миллисекундах): ");
     input.clear();
@@ -39,35 +36,23 @@ async fn main() {
 
     let duration: u64 = input.trim().parse().unwrap();
 
-    println!("Введите кол-во произвольных данных: ");
+    println!("Введите время работы программы(в миллисекундах): ");
     input.clear();
     std::io::stdin().read_line(&mut input).unwrap();
 
-    let n_iters: i32 = input.trim().parse().unwrap();
+    let program_duration: Duration = Duration::from_millis(input.trim().parse().unwrap());
 
-    let (tx, rx) = flume::unbounded();
+    let (tx, rx) = mpsc::channel::<i32>(100);
 
-    let worker = tokio::spawn(create_workers(n, rx));
+    let send_task = task::spawn(send_data(tx, Duration::from_millis(duration)));
+    let receive_task = task::spawn(receive_data(rx));
 
-    let tx_clone = tx.clone();
-    tokio::spawn(async move {
-        for i in 0..n_iters {
-            println!("{i}. Введите данные: ");
-            let mut input = String::new();
-            std::io::stdin().read_line(&mut input).unwrap();
+    tokio::time::sleep(program_duration).await;
 
-            tx_clone.send_async(input.trim().to_string()).await.unwrap();
-            tokio::time::sleep(Duration::from_millis(duration)).await;
-        }
-    });
+    println!("Время работы программы истекло, завершение работы...");
 
-    signal::ctrl_c().await.unwrap();
-    println!("Получен Ctrl+C. Завершение работы...");
-
-    drop(tx);
-
-    worker.await.unwrap();
-    println!("Все воркеры завершили работу.");
+    send_task.abort();
+    receive_task.await.unwrap();
 }
 
 
