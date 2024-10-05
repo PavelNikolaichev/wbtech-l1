@@ -1,41 +1,63 @@
 use std::thread;
-use std::sync::mpsc;
+use std::sync::{mpsc, Arc, Mutex};
+use std::time::Duration;
 
-fn parallel_sum_of_squares(n: i32) {
-    let nums: Vec<i32> = (1..=n).collect();
-    let mut threads = vec![];
+fn create_workers(n: i32, rx: mpsc::Receiver<String>) {
+    // Без мьютекса не уверен, что возможно реализовать чтение (((
+    let rx = Arc::new(Mutex::new(rx));
 
-    let (tx, rx) = mpsc::channel();
+    for id in 0..n {
+        let rx = std::sync::Arc::clone(&rx);
 
-    for num in nums {
-        let tx = tx.clone();
-        let thread = thread::spawn(move || {
-            // Поскольку нам не важен порядок вывода, мы можем вызывать вывод прямо отсюда.
-            let square = num * num;
+        thread::spawn(move || {
+            loop {
+                let data = {
+                    let rx = rx.lock().unwrap();
+                    rx.recv()
+                };
 
-            tx.send(square).unwrap();
+                match data {
+                    Ok(data) => println!("Worker {} got: {}", id, data),
+                    Err(_) => break, // Если канал закрыт, то завершаем поток. Не уверен, насколько это правильно, но все же.
+                }
+            }
         });
-        threads.push(thread);
     }
-
-    // Ждем завершения всех потоков.
-    for thread in threads {
-        thread.join().unwrap();
-    }
-
-    let res: i32 = rx.iter().take(n as usize).sum();
-    println!("{}",  res);
 }
 
 fn main() {
-    parallel_sum_of_squares(10);
-    parallel_sum_of_squares(10);
+    println!("Введите количество воркеров: ");
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input).unwrap();
 
-    parallel_sum_of_squares(20);
-    parallel_sum_of_squares(20);
+    let n: i32 = input.trim().parse().unwrap();
 
-    parallel_sum_of_squares(30);
-    parallel_sum_of_squares(30);
+    println!("Введите время ожидания между отправкой данных(в миллисекундах): ");
+    input.clear();
+    std::io::stdin().read_line(&mut input).unwrap();
+
+    let duration: u64 = input.trim().parse().unwrap();
+
+    let (tx, rx) = mpsc::channel();
+    create_workers(n, rx);
+
+    input.clear();
+
+    println!("Введите кол-во произвольных данных: ");
+    std::io::stdin().read_line(&mut input).unwrap();
+
+    let n_iters: i32 = input.trim().parse().unwrap();
+    input.clear();
+
+    for i in 0..n_iters {
+        println!("{i}. Введите данные: ");
+        std::io::stdin().read_line(&mut input).unwrap();
+
+        tx.send(input.trim().to_string()).unwrap();
+        thread::sleep(Duration::from_millis(duration));
+
+        input.clear();
+    }
 }
 
 
