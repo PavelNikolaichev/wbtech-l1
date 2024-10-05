@@ -1,31 +1,32 @@
-use std::thread;
-use std::sync::{mpsc, Arc, Mutex};
 use std::time::Duration;
+use tokio::{task, signal};
 
-fn create_workers(n: i32, rx: mpsc::Receiver<String>) {
-    // Без мьютекса не уверен, что возможно реализовать чтение (((
-    let rx = Arc::new(Mutex::new(rx));
+async fn create_workers(n: i32, rx: flume::Receiver<String>) {
+    let mut threads = Vec::new();
 
     for id in 0..n {
-        let rx = std::sync::Arc::clone(&rx);
+        let rx = rx.clone();
 
-        thread::spawn(move || {
+        threads.push(task::spawn(async move {
             loop {
-                let data = {
-                    let rx = rx.lock().unwrap();
-                    rx.recv()
-                };
-
-                match data {
+                match rx.recv_async().await {
                     Ok(data) => println!("Worker {} got: {}", id, data),
-                    Err(_) => break, // Если канал закрыт, то завершаем поток. Не уверен, насколько это правильно, но все же.
+                    Err(_) => {
+                        println!("Worker {} is closing...", id);
+                        break;
+                    }
                 }
             }
-        });
+        }));
+    }
+
+    for thread in threads {
+        thread.await.unwrap();
     }
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     println!("Введите количество воркеров: ");
     let mut input = String::new();
     std::io::stdin().read_line(&mut input).unwrap();
@@ -38,26 +39,35 @@ fn main() {
 
     let duration: u64 = input.trim().parse().unwrap();
 
-    let (tx, rx) = mpsc::channel();
-    create_workers(n, rx);
-
-    input.clear();
-
     println!("Введите кол-во произвольных данных: ");
+    input.clear();
     std::io::stdin().read_line(&mut input).unwrap();
 
     let n_iters: i32 = input.trim().parse().unwrap();
-    input.clear();
 
-    for i in 0..n_iters {
-        println!("{i}. Введите данные: ");
-        std::io::stdin().read_line(&mut input).unwrap();
+    let (tx, rx) = flume::unbounded();
 
-        tx.send(input.trim().to_string()).unwrap();
-        thread::sleep(Duration::from_millis(duration));
+    let worker = tokio::spawn(create_workers(n, rx));
 
-        input.clear();
-    }
+    let tx_clone = tx.clone();
+    tokio::spawn(async move {
+        for i in 0..n_iters {
+            println!("{i}. Введите данные: ");
+            let mut input = String::new();
+            std::io::stdin().read_line(&mut input).unwrap();
+
+            tx_clone.send_async(input.trim().to_string()).await.unwrap();
+            tokio::time::sleep(Duration::from_millis(duration)).await;
+        }
+    });
+
+    signal::ctrl_c().await.unwrap();
+    println!("Получен Ctrl+C. Завершение работы...");
+
+    drop(tx);
+
+    worker.await.unwrap();
+    println!("Все воркеры завершили работу.");
 }
 
 
