@@ -1,38 +1,55 @@
-use std::io::{self};
-
-fn set_bit(mut num: i64, bit_position: usize, value: u8) -> i64 {
-    if bit_position > 63 {
-        panic!("Bit position must be between 0 and 63");
-    }
-
-    match value {
-        1 => num |= 1 << bit_position,
-        0 => num &= !(1 << bit_position),
-        _ => panic!("Value must be 0 or 1"),
-    }
-
-    num
-}
+use std::sync::mpsc;
+use std::thread;
+use std::time::Duration;
 
 fn main() {
-    println!("Введите число: ");
+    println!("Введите кол-во чисел: ");
     let mut input = String::new();
+    std::io::stdin().read_line(&mut input).unwrap();
 
-    io::stdin().read_line(&mut input).unwrap();
-    let num: i64 = input.trim().parse().unwrap();
+    let n: u32 = input.trim().parse().unwrap();
 
-    println!("Введите позицию бита (0-63): ");
-    input.clear();
-    io::stdin().read_line(&mut input).unwrap();
+    let (tx, rx) = mpsc::channel();
+    let (tx2, rx2) = mpsc::channel();
 
-    let bit_position: usize = input.trim().parse().unwrap();
+    let thread1 = thread::spawn(move || {
+        for i in 1..=n {
+            tx.send(i).unwrap();
+            thread::sleep(Duration::from_secs(1));
+        }
+    });
 
-    println!("Введите значение бита (0 или 1): ");
-    input.clear();
-    io::stdin().read_line(&mut input).unwrap();
+    let thread2 = thread::spawn(move || {
+        loop {
+            let received = rx.recv();
+            match received {
+                Ok(v) => {
+                    tx2.send(v * v).unwrap();
+                }
+                Err(_) => {
+                    break;
+                }
+            }
+        }
+    });
 
-    let value: u8 = input.trim().parse().unwrap();
+    let thread3 = thread::spawn(move || {
+        loop {
+            let received = rx2.recv();
 
-    let result = set_bit(num, bit_position, value);
-    println!("Результат: {}", result);
+            match received {
+                Ok(v) => {
+                    println!("Получено: {}", v);
+                }
+                Err(_) => {
+                    println!("Поток чтения завершен");
+                    break;
+                }
+            }
+        }
+    });
+
+    thread1.join().unwrap();
+    thread2.join().unwrap();
+    thread3.join().unwrap();
 }
