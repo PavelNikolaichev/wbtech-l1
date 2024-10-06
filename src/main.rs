@@ -1,30 +1,52 @@
-// Используем BTree для отсортированной хэш-таблицы.
-use std::collections::BTreeMap;
+#[derive(Debug)]
+struct UnorderedSet<T: Eq> {
+    elements: Vec<T>,
+}
 
-fn group_temperatures(temps: Vec<f64>) -> BTreeMap<String, Vec<f64>> {
-    let mut groups: BTreeMap<String, Vec<f64>> = BTreeMap::new();
-
-    for &temp in &temps {
-        let range_start = (temp / 10.0).floor() * 10.0;
-
-        // Не самый оптимальный способ, технически можно использовать подход bucket sort,
-        // сделав в кач-ве ключа просто число десятков. Зато так красиво выводится)
-        let range_key = format!("[{:.1}, {:.1})", (temp / 10.0).floor() * 10.0, range_start + 10.0);
-
-        groups.entry(range_key).or_insert(Vec::new()).push(temp);
+impl<T: Eq + Clone> UnorderedSet<T> {
+    fn new() -> Self {
+        UnorderedSet {
+            elements: Vec::new(),
+        }
     }
 
-    groups
+    fn add(&mut self, value: T) {
+        if !self.elements.contains(&value) {
+            self.elements.push(value);
+        }
+    }
+
+    fn intersection(&self, other: &Self) -> UnorderedSet<T> {
+        let mut result = UnorderedSet::new();
+        for item in &self.elements {
+            if other.elements.contains(item) {
+                result.add(item.clone());
+            }
+        }
+        result
+    }
 }
 
 fn main() {
-    let temps = vec![
-        -25.4, -27.0, 13.0, 19.0, 15.5, 24.5, -21.0, 32.5
-    ];
+    let mut set1 = UnorderedSet::new();
+    set1.add(1);
+    set1.add(2);
+    set1.add(3);
+    set1.add(4);
+    set1.add(5);
 
-    let grouped = group_temperatures(temps);
+    let mut set2 = UnorderedSet::new();
+    set2.add(3);
+    set2.add(4);
+    set2.add(5);
+    set2.add(6);
+    set2.add(7);
 
-    for (range, values) in grouped {
-        println!("{}: {:?}", range, values);
-    }
+    let set3 = set1.intersection(&set2);
+
+    println!("Set 1: {:?}", set1);
+
+    println!("Set 2: {:?}", set2);
+
+    println!("Intersection: {:?}", set3);
 }
