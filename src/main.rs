@@ -1,55 +1,30 @@
-use std::sync::mpsc;
-use std::thread;
-use std::time::Duration;
+// Используем BTree для отсортированной хэш-таблицы.
+use std::collections::BTreeMap;
+
+fn group_temperatures(temps: Vec<f64>) -> BTreeMap<String, Vec<f64>> {
+    let mut groups: BTreeMap<String, Vec<f64>> = BTreeMap::new();
+
+    for &temp in &temps {
+        let range_start = (temp / 10.0).floor() * 10.0;
+
+        // Не самый оптимальный способ, технически можно использовать подход bucket sort,
+        // сделав в кач-ве ключа просто число десятков. Зато так красиво выводится)
+        let range_key = format!("[{:.1}, {:.1})", (temp / 10.0).floor() * 10.0, range_start + 10.0);
+
+        groups.entry(range_key).or_insert(Vec::new()).push(temp);
+    }
+
+    groups
+}
 
 fn main() {
-    println!("Введите кол-во чисел: ");
-    let mut input = String::new();
-    std::io::stdin().read_line(&mut input).unwrap();
+    let temps = vec![
+        -25.4, -27.0, 13.0, 19.0, 15.5, 24.5, -21.0, 32.5
+    ];
 
-    let n: u32 = input.trim().parse().unwrap();
+    let grouped = group_temperatures(temps);
 
-    let (tx, rx) = mpsc::channel();
-    let (tx2, rx2) = mpsc::channel();
-
-    let thread1 = thread::spawn(move || {
-        for i in 1..=n {
-            tx.send(i).unwrap();
-            thread::sleep(Duration::from_secs(1));
-        }
-    });
-
-    let thread2 = thread::spawn(move || {
-        loop {
-            let received = rx.recv();
-            match received {
-                Ok(v) => {
-                    tx2.send(v * v).unwrap();
-                }
-                Err(_) => {
-                    break;
-                }
-            }
-        }
-    });
-
-    let thread3 = thread::spawn(move || {
-        loop {
-            let received = rx2.recv();
-
-            match received {
-                Ok(v) => {
-                    println!("Получено: {}", v);
-                }
-                Err(_) => {
-                    println!("Поток чтения завершен");
-                    break;
-                }
-            }
-        }
-    });
-
-    thread1.join().unwrap();
-    thread2.join().unwrap();
-    thread3.join().unwrap();
+    for (range, values) in grouped {
+        println!("{}: {:?}", range, values);
+    }
 }
