@@ -1,90 +1,149 @@
-use std::sync::mpsc;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
-use tokio::sync::mpsc as tokio_mpsc;
-use tokio::time::{sleep, Duration as TokioDuration};
-use tokio_util::sync::CancellationToken;
+use dashmap::DashMap;
 
-fn thread_with_channel_termination() {
-    let (tx, rx) = mpsc::channel();
+fn mutex_with_hashmap() {
+    let map = Arc::new(Mutex::new(HashMap::new()));
+    let mut threads = vec![];
 
-    let handle = thread::spawn(move || {
-        loop {
-            match rx.recv() {
-                Ok(msg) => println!("Thread received: {}", msg),
-                Err(_) => {
-                    println!("Channel closed, thread stopping.");
-                    break;
-                }
-            }
-        }
-    });
-
-    for i in 0..5 {
-        tx.send(i).unwrap();
-        thread::sleep(Duration::from_millis(500));
+    for i in 0..10 {
+        let map = Arc::clone(&map);
+        threads.push(thread::spawn(move || {
+            let mut map = map.lock().unwrap();
+            map.insert(i, i * 2);
+            println!("Inserted key: {}, value: {}", i, i * 2);
+        }));
     }
 
-    drop(tx);
-
-    handle.join().unwrap();
-}
-
-async fn tokio_task_with_channel_termination() {
-    let (tx, mut rx) = tokio_mpsc::channel(100);
-
-    let task = tokio::spawn(async move {
-        while let Some(msg) = rx.recv().await {
-            println!("Task received: {}", msg);
-        }
-        println!("Channel closed, task stopping.");
-    });
-
-    for i in 0..5 {
-        tx.send(i).await.unwrap();
-        sleep(TokioDuration::from_millis(500)).await;
+    for thread in threads {
+        thread.join().unwrap();
     }
 
-    drop(tx);
+    println!("Final map: {:?}", *map.lock().unwrap());
 
-    task.await.unwrap();
-}
+    println!("Concurrent read from HashMap:");
+    let mut threads = vec![];
 
-async fn tokio_task_with_cancellation_token() {
-    let cancel_token = CancellationToken::new();
-
-    let task_token = cancel_token.clone();
-
-    let task = tokio::spawn(async move {
-        loop {
-            tokio::select! {
-                _ = task_token.cancelled() => {
-                    println!("Task cancelled, stopping.");
-                    break;
-                },
-                _ = sleep(TokioDuration::from_millis(500)) => {
-                    println!("Task is running...");
-                }
+    for i in 0..10 {
+        let map = Arc::clone(&map);
+        threads.push(thread::spawn(move || {
+            let map = map.lock().unwrap();
+            let value = map.get(&i);
+            match value {
+                Some(v) => println!("Key: {}, Value: {}", i, v),
+                None => println!("Key: {} not found", i),
             }
+        }));
+    }
+
+    for thread in threads {
+        thread.join().unwrap();
+    }
+
+    println!("Concurrent read is done");
+
+    println!("Concurrent read-write from HashMap:");
+    let mut threads = vec![];
+
+    for i in 0..10 {
+        let map = Arc::clone(&map);
+        if i % 2 == 0 {
+            threads.push(thread::spawn(move || {
+                let map = map.lock().unwrap();
+                let value = map.get(&i);
+                match value {
+                    Some(v) => println!("Key: {}, Value: {}", i, v),
+                    None => println!("Key: {} not found", i),
+                }
+            }));
+        } else {
+            threads.push(thread::spawn(move || {
+                let mut map = map.lock().unwrap();
+                map.insert(i, i * 3);
+                println!("Inserted key: {}, value: {}", i, i * 3);
+            }));
         }
-    });
+    }
 
-    sleep(TokioDuration::from_secs(2)).await;
+    for thread in threads {
+        thread.join().unwrap();
+    }
 
-    println!("Cancelling task...");
-    cancel_token.cancel();
-
-    task.await.unwrap();
+    println!("Concurrent read-write is done");
 }
 
-#[tokio::main]
-async fn main() {
-    println!("=== Тестирование остановки потока через закрытие канала ===");
-    thread_with_channel_termination();
+fn dashmap_concurrent_write() {
+    let map = Arc::new(DashMap::new());
+    let mut threads = vec![];
 
-    println!("\n=== Тестирование остановки tokio задачи через закрытие канала ===");
-    tokio_task_with_channel_termination().await;
+    for i in 0..10 {
+        let map = Arc::clone(&map);
+        threads.push(thread::spawn(move || {
+            map.insert(i, i * 2);
+            println!("Inserted key: {}, value: {}", i, i * 2);
+        }));
+    }
 
-    println!("\n=== Тестирование остановки tokio задачи через CancellationToken ===");
-    tokio_task_with_cancellation_token().await;
+    for thread in threads {
+        thread.join().unwrap();
+    }
+
+    println!("Final map: {:?}", map);
+
+    println!("Concurrent read from DashMap:");
+    let mut threads = vec![];
+
+    for i in 0..10 {
+        let map = Arc::clone(&map);
+        threads.push(thread::spawn(move || {
+            let value = map.get(&i);
+            match value {
+                Some(v) => println!("Key: {}, Value: {}", i, v.value()),
+                None => println!("Key: {} not found", i),
+            }
+        }));
+    }
+
+    for thread in threads {
+        thread.join().unwrap();
+    }
+
+    println!("Concurrent read is done");
+
+    println!("Concurrent read-write from DashMap:");
+
+    let mut threads = vec![];
+
+    for i in 0..10 {
+        let map = Arc::clone(&map);
+        if i % 2 == 0 {
+            threads.push(thread::spawn(move || {
+                let value = map.get(&i);
+                match value {
+                    Some(v) => println!("Key: {}, Value: {}", i, v.value()),
+                    None => println!("Key: {} not found", i),
+                }
+            }));
+        } else {
+            threads.push(thread::spawn(move || {
+                map.insert(i, i * 3);
+                println!("Inserted key: {}, value: {}", i, i * 3);
+            }));
+        }
+    }
+
+    for thread in threads {
+        thread.join().unwrap();
+    }
+
+    println!("Concurrent read-write is done");
+}
+
+fn main() {
+    println!("=== Тестирование Mutex с HashMap ===");
+    mutex_with_hashmap();
+
+    println!("\n=== Тестирование DashMap ===");
+    dashmap_concurrent_write();
 }
