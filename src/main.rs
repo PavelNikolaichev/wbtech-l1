@@ -1,52 +1,22 @@
-#[derive(Debug)]
-struct UnorderedSet<T: Eq> {
-    elements: Vec<T>,
-}
-
-impl<T: Eq + Clone> UnorderedSet<T> {
-    fn new() -> Self {
-        UnorderedSet {
-            elements: Vec::new(),
-        }
-    }
-
-    fn add(&mut self, value: T) {
-        if !self.elements.contains(&value) {
-            self.elements.push(value);
-        }
-    }
-
-    fn intersection(&self, other: &Self) -> UnorderedSet<T> {
-        let mut result = UnorderedSet::new();
-        for item in &self.elements {
-            if other.elements.contains(item) {
-                result.add(item.clone());
-            }
-        }
-        result
-    }
-}
-
 fn main() {
-    let mut set1 = UnorderedSet::new();
-    set1.add(1);
-    set1.add(2);
-    set1.add(3);
-    set1.add(4);
-    set1.add(5);
+    let mut strings: Vec<String> = Vec::new();
 
-    let mut set2 = UnorderedSet::new();
-    set2.add(3);
-    set2.add(4);
-    set2.add(5);
-    set2.add(6);
-    set2.add(7);
+    println!("Введите кол-во строк:");
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input).unwrap();
 
-    let set3 = set1.intersection(&set2);
+    let n: i32 = input.trim().parse().unwrap();
 
-    println!("Set 1: {:?}", set1);
+    for i in 0..n {
+        input.clear();
+        println!("Введите строку {}:", i+1);
+        std::io::stdin().read_line(&mut input).unwrap();
 
-    println!("Set 2: {:?}", set2);
+        // O(n) поиск, с хеш-таблицей было бы O(1) :(
+        if !strings.contains(&input.trim().to_string()) {
+            strings.push(input.trim().to_string());
+        }
+    }
 
-    println!("Intersection: {:?}", set3);
+    println!("Уникальные строки: \n{}", strings.join("\n"));
 }
