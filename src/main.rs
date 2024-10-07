@@ -1,13 +1,57 @@
+trait Logger {
+    fn log_info(&self, message: &str);
+    fn log_error(&self, message: &str);
+}
+
+struct SimpleLogger;
+
+impl Logger for SimpleLogger {
+    fn log_info(&self, message: &str) {
+        println!("[INFO]: {}", message);
+    }
+
+    fn log_error(&self, message: &str) {
+        println!("[ERROR]: {}", message);
+    }
+}
+
+struct ThirdPartyLogger;
+
+impl ThirdPartyLogger {
+    fn log(&self, message: &str) {
+        println!("[ThirdPartyLogger]: {}", message);
+    }
+}
+
+struct LoggerAdapter {
+    third_party_logger: ThirdPartyLogger,
+}
+
+impl LoggerAdapter {
+    fn new(third_party_logger: ThirdPartyLogger) -> Self {
+        LoggerAdapter { third_party_logger }
+    }
+}
+
+impl Logger for LoggerAdapter {
+    fn log_info(&self, message: &str) {
+        self.third_party_logger.log(&format!("INFO: {}", message));
+    }
+
+    fn log_error(&self, message: &str) {
+        self.third_party_logger.log(&format!("ERROR: {}", message));
+    }
+}
+
 fn main() {
-    println!("Введите строку:");
-    let mut input = String::new();
-    std::io::stdin().read_line(&mut input).unwrap();
-    let input = input.trim().to_string();
+    let simple_logger = SimpleLogger;
+    let third_party_logger = ThirdPartyLogger;
+    let adapter_logger = LoggerAdapter::new(third_party_logger);
 
-    let result = input.rsplit(' ')
-        .map(|word| word.to_string())
-        .collect::<Vec<String>>()
-        .join(" ");
+    simple_logger.log_info("This is a simple log message.");
+    simple_logger.log_error("This is a simple error message.");
 
-    println!("Результат: {}", result);
+    // Проверяем адаптер.
+    adapter_logger.log_info("This is an info log through the adapter.");
+    adapter_logger.log_error("This is an error log through the adapter.");
 }
