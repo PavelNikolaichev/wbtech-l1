@@ -1,39 +1,25 @@
-use std::sync::{Arc, Mutex};
-use std::thread;
-
-#[derive(Debug)]
-struct Counter {
-    count: Mutex<i32>
-}
-
-impl Counter {
-    fn increment(&self) {
-        let mut count = self.count.lock().unwrap();
-        *count += 1;
-    }
-
-    fn get(&self) -> i32 {
-        let count = self.count.lock().unwrap();
-        *count
-    }
-}
-
 fn main() {
-    let counter = Arc::new(Counter { count: Mutex::new(0) });
-    let mut threads = vec![];
+    println!("Введите строку:");
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input).unwrap();
+    let input = input.trim().to_string();
 
-    for _ in 0..10 {
-        let counter = Arc::clone(&counter);
-        threads.push(thread::spawn(move || {
-            for _ in 0..1000 {
-                counter.increment();
-            }
-        }));
+    if input.is_empty() {
+        println!("Результат: ");
+        return;
     }
 
-    for thread in threads {
-        thread.join().unwrap();
+    let mut l = 0;
+    let mut r = input.len() - 1;
+
+    let mut chars: Vec<char> = input.chars().collect();
+
+    while l < r {
+        chars.swap(l, r);
+
+        l += 1;
+        r -= 1;
     }
 
-    println!("Результат: {}", counter.get());
+    println!("Результат: {}", chars.into_iter().collect::<String>());
 }
