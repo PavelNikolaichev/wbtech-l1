@@ -1,26 +1,27 @@
-fn remove_element_by_index<T: Clone>(vec: & mut Vec<T>, index: usize) {
-    if index >= vec.len() {
-        return;
+#[derive(Debug)]
+struct Point {
+    x: f64,
+    y: f64,
+}
+
+impl Point {
+    fn new(x: f64, y: f64) -> Point {
+        Point { x, y }
     }
 
-    for i in index..vec.len() - 1 {
-        vec[i] = vec[i + 1].clone();
+    fn dist_to(&self, other: &Point) -> f64 {
+        ((self.x - other.x).powi(2) + (self.y - other.y).powi(2)).sqrt()
     }
-
-    vec.pop();
 }
 
 fn main() {
-    let mut vec = vec![10, 20, 30, 40, 50];
+    let point1 = Point::new(0.0, 0.0);
+    let point2 = Point::new(3.0, 4.0);
 
-    println!("Вектор: {:?}", vec);
+    println!("Distance between point1({:?}) and point2({:?}): {}", point1, point2, point1.dist_to(&point2));
 
-    remove_element_by_index(&mut vec, 2);
-    println!("Удаляем элемент по индексу 2: {:?}", vec);
+    let point3 = Point::new(1.0, 1.0);
+    let point4 = Point::new(4.0, 5.0);
 
-    remove_element_by_index(&mut vec, 0);
-    println!("Удаляем элемент по индексу 0: {:?}", vec);
-
-    remove_element_by_index(&mut vec, 2);
-    println!("Удаляем элемент по индексу 2: {:?}", vec);
+    println!("Distance between point3({:?}) and point4({:?}): {}", point3, point4, point3.dist_to(&point4));
 }
