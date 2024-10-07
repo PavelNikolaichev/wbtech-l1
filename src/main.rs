@@ -1,27 +1,30 @@
-#[derive(Debug)]
-struct Point {
-    x: f64,
-    y: f64,
-}
+use std::collections::HashSet;
 
-impl Point {
-    fn new(x: f64, y: f64) -> Point {
-        Point { x, y }
+fn has_unique_characters(input: &str) -> bool {
+    let mut seen_chars = HashSet::new();
+
+    for c in input.to_lowercase().chars() {
+        if seen_chars.contains(&c) {
+            return false;
+        }
+
+        seen_chars.insert(c);
     }
 
-    fn dist_to(&self, other: &Point) -> f64 {
-        ((self.x - other.x).powi(2) + (self.y - other.y).powi(2)).sqrt()
-    }
+    true
 }
 
 fn main() {
-    let point1 = Point::new(0.0, 0.0);
-    let point2 = Point::new(3.0, 4.0);
+    let test_cases = vec![
+        "abcd",
+        "abCdefAaf",
+        "Aabcd",
+        "HelloWorld",
+        "Unique",
+        "Rust",
+    ];
 
-    println!("Distance between point1({:?}) and point2({:?}): {}", point1, point2, point1.dist_to(&point2));
-
-    let point3 = Point::new(1.0, 1.0);
-    let point4 = Point::new(4.0, 5.0);
-
-    println!("Distance between point3({:?}) and point4({:?}): {}", point3, point4, point3.dist_to(&point4));
+    for test in test_cases {
+        println!("\"{}\" состоит из уникальных символов: {}", test, has_unique_characters(test));
+    }
 }
