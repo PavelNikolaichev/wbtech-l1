@@ -1,21 +1,40 @@
-use std::any::Any;
+use rand::random;
 
-fn get_type<T: Any>(_: T) {
-    println!("{}", std::any::type_name::<T>());
+fn quicksort(arr: &mut [i32]) {
+    if arr.len() <= 1 {
+        return;
+    }
+
+    let pivot = partition(arr);
+
+    quicksort(&mut arr[0..pivot]);
+    quicksort(&mut arr[pivot + 1..]);
+}
+
+fn partition(arr: &mut [i32]) -> usize {
+    let pivot = arr[arr.len() - 1];
+    let mut index = 0;
+
+    for i in 0..arr.len() - 1 {
+        if arr[i] < pivot {
+            arr.swap(index, i);
+            index += 1;
+        }
+    }
+    arr.swap(index, arr.len() - 1);
+
+    index
 }
 
 fn main() {
-    get_type(42);
-    get_type("Hello");
-    get_type(3.14);
-    get_type(true);
-    get_type('A');
-    get_type([1, 2, 3]);
-    get_type((1, 2, 3));
-    get_type(Some(42));
-    get_type(Box::new(42));
-    get_type(String::from("Hello"));
-    get_type(vec![1, 2, 3]);
-    get_type(std::collections::HashMap::<i32, i32>::new());
-    get_type(std::collections::HashSet::<i32>::new());
+    let mut array: Vec<i32> = (0..10).map(|_| i32::abs(random::<i32>() % 100)).collect();
+    let mut sorted_array = array.clone();
+
+    println!("Сгенерированный массив: {:?}", array);
+
+    quicksort(&mut sorted_array);
+    array.sort();
+
+    println!("Массив, отсортированный quick sort: {:?}", sorted_array);
+    println!("Массив, отсортированный  `.sort()`: {:?}", array);
 }
